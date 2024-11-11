@@ -1,17 +1,23 @@
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+# Use the official lightweight Python image.
+# https://hub.docker.com/_/python
+FROM python:3.10-slim
 
-# Set the working directory in the container
-WORKDIR /app
+# Allow statements and log messages to immediately appear in the logs
+ENV PYTHONUNBUFFERED True
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
+RUN apt install -y libgl1-mesa-glx -y
+# Copy local code to the container image.
+ENV APP_HOME /app
+WORKDIR $APP_HOME
+COPY . ./
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install production dependencies.
+RUN pip install -r requirements.txt
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
-
-# Run app.py when the container launches
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+# Run the web service on container startup. Here we use the gunicorn
+# webserver, with one worker process and 8 threads.
+# For environments with multiple CPU cores, increase the number of workers
+# to be equal to the cores available.
+# Timeout is set to 0 to disable the timeouts of the workers to allow Cloud Run to handle instance scaling.
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 api:app 
